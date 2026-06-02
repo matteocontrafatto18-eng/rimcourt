@@ -1,14 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
+import GameCard from '../components/GameCard.astro';
 
 // Data italiana corrente (SSR: calcolata ad ogni richiesta)
 const now = new Date();
 const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' });
-const oggiIT = formatter.format(now); // es. "2026-06-02"
+const oggiIT = formatter.format(now);
 
-// Fetchiamo 7 giorni a partire da oggi (in orario italiano)
-// così l'utente vede sempre le prossime partite
+// Fetchiamo 7 giorni da oggi
 const dates: string[] = [];
 for (let i = 0; i < 7; i++) {
   const d = new Date(now);
@@ -27,7 +27,6 @@ try {
   );
   if (res.ok) {
     const json = await res.json();
-    // Ordina per datetime crescente
     partite = (json.data ?? []).sort((a: any, b: any) =>
       new Date(a.datetime ?? a.status).getTime() - new Date(b.datetime ?? b.status).getTime()
     );
@@ -38,7 +37,6 @@ try {
   erroreAPI = true;
 }
 
-// Converte datetime UTC → ora italiana leggibile
 function oraIT(game: any): string {
   if (game.status === 'Final') return 'Final';
   if (game.period > 0) return `Q${game.period}${game.time ? ' ' + game.time : ''}`;
@@ -53,7 +51,6 @@ function oraIT(game: any): string {
   });
 }
 
-// Raggruppa le partite per data italiana
 function dataIT(game: any): string {
   const raw = game.datetime ?? game.status;
   if (!raw) return oggiIT;
@@ -63,22 +60,11 @@ function dataIT(game: any): string {
 }
 
 function labelData(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
   if (dateStr === oggiIT) return 'Oggi';
   const domani = formatter.format(new Date(now.getTime() + 86400000));
-  if (dateStr === domani) return 'Domani';
-  return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-}
-
-// Partite di oggi/stanotte (data italiana corrente)
-const partiteOggi = partite.filter(p => dataIT(p) === oggiIT);
-
-// Raggruppa tutte le partite per data
-const perData = new Map<string, any[]>();
-for (const p of partite) {
-  const k = dataIT(p);
-  if (!perData.has(k)) perData.set(k, []);
-  perData.get(k)!.push(p);
+  if (dateStr === domani) return 'Dom.';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 }
 
 const cluster = [
@@ -95,98 +81,79 @@ const cluster = [
 >
   <Header />
 
-  <main class="mx-auto max-w-6xl px-4 py-6 space-y-3">
+  <main class="mx-auto max-w-6xl px-6 py-8 space-y-8">
 
-    <!-- Partite del giorno -->
-    <section aria-labelledby="partite-title" class="rounded-lg border border-blue-500 bg-neutral-800 p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 id="partite-title" class="text-sm font-medium text-white">Partite del giorno</h2>
-        <a href="/partite" class="text-xs text-orange-400 hover:text-orange-300 transition-colors">Tutte →</a>
-      </div>
-      {erroreAPI ? (
-        <p class="text-xs text-neutral-500">Dati non disponibili.</p>
-      ) : partiteOggi.length === 0 ? (
-        <p class="text-xs text-neutral-500">Nessuna partita oggi.</p>
-      ) : (
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {partiteOggi.map((p) => (
-            <div class="rounded bg-neutral-700 px-3 py-2 text-xs text-neutral-200">
-              <span class="font-semibold">{p.home_team.abbreviation} – {p.visitor_team.abbreviation}</span>
-              <span class="ml-2 text-neutral-400">{oraIT(p)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-
-    <!-- Stasera in NBA -->
-    <section aria-labelledby="stasera-title" class="rounded-lg bg-neutral-800 p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 id="stasera-title" class="text-sm font-medium text-white">Stasera in NBA</h2>
-        <span class="text-xs text-orange-400">Orario Italiano</span>
-      </div>
-      {erroreAPI ? (
-        <p class="text-xs text-neutral-500">Dati non disponibili.</p>
-      ) : partiteOggi.length === 0 ? (
-        <p class="text-xs text-neutral-500">Nessuna partita stasera.</p>
-      ) : (
-        <div class="space-y-2">
-          {partiteOggi.map((p) => (
-            <div class="flex items-center justify-between rounded bg-neutral-700 px-4 py-3">
-              <div>
-                <span class="text-sm text-white font-medium">
-                  {p.home_team.full_name} vs {p.visitor_team.full_name}
-                </span>
-                <span class="ml-2 text-xs text-neutral-400">{oraIT(p)}</span>
-              </div>
-              <a
-                href="/dove-vedere"
-                class="shrink-0 ml-3 text-xs text-neutral-400 border border-neutral-600 rounded px-2 py-1 hover:text-white hover:border-neutral-400 transition-colors"
-              >
-                Dove vedere ↗
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-
-    <!-- Prossime partite (giorni successivi) -->
-    {[...perData.entries()].filter(([k]) => k !== oggiIT).map(([data, games]) => (
-      <section aria-label={`Partite del ${labelData(data)}`} class="rounded-lg bg-neutral-900 border border-neutral-800 p-4">
-        <h2 class="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3 capitalize">
-          {labelData(data)}
+    <!-- Prossime partite -->
+    <section aria-labelledby="partite-title">
+      <div class="flex items-center justify-between mb-5">
+        <h2
+          id="partite-title"
+          class="text-2xl font-bold text-white"
+          style="font-family:'Agdasima',sans-serif;"
+        >
+          Prossime partite
         </h2>
-        <div class="space-y-2">
-          {games.map((p: any) => (
-            <div class="flex items-center justify-between rounded bg-neutral-800 px-4 py-2">
-              <span class="text-sm text-neutral-300">
-                {p.home_team.full_name} vs {p.visitor_team.full_name}
-              </span>
-              <span class="text-xs text-neutral-500 ml-2">{oraIT(p)}</span>
+        <a
+          href="/partite"
+          class="text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+          style="font-family:'Agdasima',sans-serif;"
+        >
+          Tutte →
+        </a>
+      </div>
+
+      {erroreAPI ? (
+        <p class="text-sm text-neutral-500">Dati non disponibili al momento.</p>
+      ) : partite.length === 0 ? (
+        <p class="text-sm text-neutral-500">Nessuna partita in programma.</p>
+      ) : (
+        /* Scroll orizzontale su mobile, griglia su desktop */
+        <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none
+                    md:grid md:grid-cols-4 md:overflow-visible">
+          {partite.map((p) => (
+            <div class="snap-start">
+              <GameCard
+                game={p}
+                dataLabel={labelData(dataIT(p))}
+                ora={oraIT(p)}
+                gameLabel={p.postseason ? 'Playoffs' : 'Regular Season'}
+              />
             </div>
           ))}
         </div>
-      </section>
-    ))}
+      )}
+    </section>
 
     <!-- Recap e analisi -->
-    <section aria-labelledby="recap-title" class="rounded-lg bg-neutral-800 p-4 min-h-[80px]">
-      <div class="flex items-center justify-between mb-2">
-        <h2 id="recap-title" class="text-sm font-medium text-white">Recap e analisi</h2>
-        <a href="/recap" class="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">Tutti →</a>
+    <section aria-labelledby="recap-title" class="rounded-xl bg-neutral-900 border border-neutral-800 p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2
+          id="recap-title"
+          class="text-xl font-bold text-white"
+          style="font-family:'Agdasima',sans-serif;"
+        >
+          Recap e analisi
+        </h2>
+        <a href="/recap" class="text-sm text-neutral-500 hover:text-neutral-300 transition-colors">Tutti →</a>
       </div>
-      <p class="text-xs text-neutral-500">Il recap della notte in italiano — in arrivo.</p>
+      <p class="text-sm text-neutral-500">Il recap della notte in italiano — in arrivo.</p>
     </section>
 
     <!-- Esplora -->
-    <section aria-labelledby="esplora-title" class="pt-2">
-      <h2 id="esplora-title" class="mb-3 text-xs font-bold uppercase tracking-widest text-white">Esplora</h2>
-      <div class="grid grid-cols-2 gap-2">
+    <section aria-labelledby="esplora-title">
+      <h2
+        id="esplora-title"
+        class="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-500"
+        style="font-family:'Agdasima',sans-serif;"
+      >
+        Esplora
+      </h2>
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         {cluster.map((c) => (
           <a
             href={c.href}
-            class="rounded-lg bg-neutral-800 px-4 py-10 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-white"
+            class="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-8 text-base font-semibold text-neutral-300 transition-colors hover:border-orange-500 hover:text-white"
+            style="font-family:'Agdasima',sans-serif;"
           >
             {c.label}
           </a>
@@ -195,19 +162,32 @@ const cluster = [
     </section>
 
     <!-- Ads -->
-    <div class="rounded-lg border border-dashed border-neutral-800 py-8 text-center text-xs text-neutral-700 mt-4" aria-hidden="true">
+    <div
+      class="rounded-xl border border-dashed border-neutral-800 py-10 text-center text-xs text-neutral-700"
+      aria-hidden="true"
+    >
       spazio pubblicitario
     </div>
 
     <!-- Newsletter -->
-    <section aria-labelledby="newsletter-title" class="flex items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-4">
+    <section
+      aria-labelledby="newsletter-title"
+      class="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-5"
+    >
       <div class="flex-1">
-        <h2 id="newsletter-title" class="text-sm font-medium text-white">Partite di stanotte + recap — nella tua inbox</h2>
-        <p class="text-xs text-neutral-500 mt-0.5">Una mail al giorno, solo nei giorni di partita.</p>
+        <h2
+          id="newsletter-title"
+          class="text-lg font-bold text-white"
+          style="font-family:'Agdasima',sans-serif;"
+        >
+          Partite di stanotte + recap — nella tua inbox
+        </h2>
+        <p class="text-sm text-neutral-500 mt-1">Una mail al giorno, solo nei giorni di partita.</p>
       </div>
       <a
         href="/newsletter"
-        class="shrink-0 rounded-md bg-orange-500 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-400"
+        class="shrink-0 rounded-md bg-orange-500 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-orange-400"
+        style="font-family:'Agdasima',sans-serif;"
       >
         Iscriviti
       </a>
@@ -216,8 +196,8 @@ const cluster = [
   </main>
 
   <!-- Footer -->
-  <footer class="mt-8 border-t border-neutral-900 px-4 py-6">
-    <div class="mx-auto max-w-6xl flex flex-wrap gap-4 text-xs text-neutral-600">
+  <footer class="mt-12 border-t border-neutral-900 px-6 py-8">
+    <div class="mx-auto max-w-6xl flex flex-wrap gap-6 text-sm text-neutral-600">
       <a href="/squadre" class="hover:text-neutral-300 transition-colors">Squadre</a>
       <a href="/giocatori" class="hover:text-neutral-300 transition-colors">Giocatori</a>
       <a href="/guide" class="hover:text-neutral-300 transition-colors">Guide</a>
@@ -227,3 +207,12 @@ const cluster = [
   </footer>
 
 </Layout>
+
+<style>
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+</style>
