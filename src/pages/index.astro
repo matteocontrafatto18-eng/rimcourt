@@ -1,17 +1,191 @@
 ---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
 
+// Fetch partite di oggi da balldontlie
+const oggi = new Date().toISOString().split('T')[0]; // es. "2026-06-02"
+
+let partite: any[] = [];
+let erroreAPI = false;
+
+try {
+  const res = await fetch(
+    `https://api.balldontlie.io/v1/games?dates[]=${oggi}&per_page=20`,
+    { headers: { Authorization: import.meta.env.BALLDONTLIE_API_KEY } }
+  );
+  if (res.ok) {
+    const json = await res.json();
+    partite = json.data ?? [];
+  } else {
+    erroreAPI = true;
+  }
+} catch {
+  erroreAPI = true;
+}
+
+// Converte orario UTC → ora italiana (CEST = UTC+2, CET = UTC+1)
+function oraItaliana(status: string): string {
+  // status può essere "7:30 pm ET" oppure "Final" oppure un punteggio
+  if (!status || status === 'Final' || /^\d/.test(status)) return status;
+  const match = status.match(/(\d+):(\d+)\s*(am|pm)\s*ET/i);
+  if (!match) return status;
+  let ore = parseInt(match[1]);
+  const minuti = match[2];
+  const ampm = match[3].toLowerCase();
+  if (ampm === 'pm' && ore !== 12) ore += 12;
+  if (ampm === 'am' && ore === 12) ore = 0;
+  // ET = UTC-4 (estate) → Italia CEST = UTC+2 → +6 ore
+  ore = (ore + 6) % 24;
+  return `${String(ore).padStart(2, '0')}:${minuti}`;
+}
+
+const cluster = [
+  { emoji: '📺', label: 'Dove vedere', href: '/dove-vedere' },
+  { emoji: '📰', label: 'Recap & analisi', href: '/recap' },
+  { emoji: '📖', label: 'Guide', href: '/guide' },
+  { emoji: '👥', label: 'Squadre & giocatori', href: '/squadre' },
+];
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Layout
+  title="Rimcourt — NBA in italiano"
+  description="Partite NBA di stasera, dove vederle in Italia, recap e analisi in italiano."
+>
+  <Header />
+
+  <main class="mx-auto max-w-5xl px-4 py-6 space-y-6">
+
+    <!-- Striscia partite -->
+    <section aria-labelledby="striscia-title" class="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 id="striscia-title" class="flex items-center gap-2 text-sm font-medium">
+          <svg class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke-width="2"/>
+            <polyline points="12 6 12 12 16 14" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Partite di stanotte — orario Italia
+        </h2>
+        <a href="/partite" class="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">Tutte →</a>
+      </div>
+
+      {erroreAPI && (
+        <p class="text-xs text-neutral-500">Dati temporaneamente non disponibili.</p>
+      )}
+
+      {!erroreAPI && partite.length === 0 && (
+        <p class="text-xs text-neutral-500">Nessuna partita programmata oggi.</p>
+      )}
+
+      {partite.length > 0 && (
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {partite.map((p) => (
+            <div class="rounded-md bg-neutral-800 px-3 py-2 text-xs">
+              <span class="font-medium">{p.home_team.abbreviation}–{p.visitor_team.abbreviation}</span>
+              <span class="ml-2 text-neutral-400">{oraItaliana(p.status)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- Stasera in NBA -->
+    <section aria-labelledby="stasera-title" class="rounded-lg border border-neutral-700 bg-neutral-900 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 id="stasera-title" class="text-base font-semibold">Stasera in NBA</h2>
+        <span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">orario italiano</span>
+      </div>
+
+      {partite.length === 0 ? (
+        <p class="text-sm text-neutral-500">Nessuna partita stasera.</p>
+      ) : (
+        <div class="space-y-2">
+          {partite.map((p) => (
+            <div class="flex items-center justify-between rounded-md bg-neutral-800 px-4 py-3">
+              <span class="text-sm">
+                {p.home_team.full_name} vs {p.visitor_team.full_name}
+                {p.status !== 'Final' && !/^\d/.test(p.status) && (
+                  <span class="text-neutral-400"> · {oraItaliana(p.status)} (IT)</span>
+                )}
+                {(p.status === 'Final' || /^\d/.test(p.status)) && (
+                  <span class="ml-2 text-xs text-neutral-400">{p.home_team_score}–{p.visitor_team_score} · Final</span>
+                )}
+              </span>
+              <a
+                href="/dove-vedere"
+                class="shrink-0 rounded-md border border-neutral-600 px-3 py-1 text-xs text-neutral-300 transition-colors hover:border-neutral-400 hover:text-white"
+              >
+                Dove vedere ↗
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- Recap & analisi -->
+    <section aria-labelledby="recap-title" class="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 id="recap-title" class="flex items-center gap-2 text-base font-semibold">
+          <svg class="h-4 w-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+          Recap & analisi in italiano
+        </h2>
+        <a href="/recap" class="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">Tutti →</a>
+      </div>
+      <div class="flex min-h-[72px] items-center justify-center rounded-md bg-neutral-800 px-4 py-4 text-sm text-neutral-400">
+        Recap della notte in arrivo — non solo punteggi, ma cosa è successo davvero.
+      </div>
+    </section>
+
+    <!-- Cluster SEO -->
+    <section aria-labelledby="cluster-title">
+      <h2 id="cluster-title" class="mb-3 text-xs font-medium uppercase tracking-widest text-neutral-500">Esplora</h2>
+      <div class="grid grid-cols-2 gap-3">
+        {cluster.map((c) => (
+          <a
+            href={c.href}
+            class="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-4 text-sm font-medium transition-colors hover:border-neutral-600 hover:bg-neutral-800"
+          >
+            <span aria-hidden="true">{c.emoji}</span>
+            {c.label}
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- Newsletter -->
+    <section aria-labelledby="newsletter-title" class="flex items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-4">
+      <svg class="h-5 w-5 shrink-0 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+      <div class="flex-1">
+        <h2 id="newsletter-title" class="text-sm font-medium">Partite di stanotte + recap — nella tua inbox</h2>
+        <p class="text-xs text-neutral-500">Una mail al giorno, solo nei giorni di partita.</p>
+      </div>
+      <a
+        href="/newsletter"
+        class="shrink-0 rounded-md bg-orange-500 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-400"
+      >
+        Iscriviti
+      </a>
+    </section>
+
+    <!-- Ads -->
+    <div class="rounded-lg border border-dashed border-neutral-800 py-6 text-center text-xs text-neutral-600" aria-hidden="true">
+      spazio pubblicitario
+    </div>
+
+  </main>
+
+  <footer class="mt-8 border-t border-neutral-800 px-4 py-6">
+    <div class="mx-auto max-w-5xl flex flex-wrap gap-4 text-xs text-neutral-500">
+      <a href="/squadre" class="hover:text-neutral-300 transition-colors">Squadre</a>
+      <a href="/giocatori" class="hover:text-neutral-300 transition-colors">Giocatori</a>
+      <a href="/guide" class="hover:text-neutral-300 transition-colors">Guide</a>
+      <a href="/dove-vedere" class="hover:text-neutral-300 transition-colors">Dove vedere NBA in Italia</a>
+      <a href="/calendario" class="hover:text-neutral-300 transition-colors">Calendario 2026/27</a>
+    </div>
+  </footer>
+
+</Layout>
