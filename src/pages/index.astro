@@ -19,21 +19,25 @@ const datesQuery = dates.map(d => `dates[]=${d}`).join('&');
 
 let partite: any[] = [];
 let erroreAPI = false;
+let erroreMsg = '';
 
 try {
-  const res = await fetch(
-    `https://api.balldontlie.io/v1/games?${datesQuery}&per_page=100`,
-    { headers: { Authorization: import.meta.env.BALLDONTLIE_API_KEY } }
-  );
+  const apiKey = import.meta.env.BALLDONTLIE_API_KEY;
+  const url = `https://api.balldontlie.io/v1/games?${datesQuery}&per_page=100`;
+  const res = await fetch(url, {
+    headers: { Authorization: apiKey ?? '' }
+  });
   if (res.ok) {
     const json = await res.json();
     partite = (json.data ?? []).sort((a: any, b: any) =>
       new Date(a.datetime ?? a.status).getTime() - new Date(b.datetime ?? b.status).getTime()
     );
   } else {
+    erroreMsg = `API ${res.status}: ${await res.text()}`;
     erroreAPI = true;
   }
-} catch {
+} catch (e: any) {
+  erroreMsg = e?.message ?? 'fetch error';
   erroreAPI = true;
 }
 
@@ -103,7 +107,7 @@ const cluster = [
       </div>
 
       {erroreAPI ? (
-        <p class="text-sm text-neutral-500">Dati non disponibili al momento.</p>
+        <p class="text-sm text-red-400">Errore: {erroreMsg}</p>
       ) : partite.length === 0 ? (
         <p class="text-sm text-neutral-500">Nessuna partita in programma.</p>
       ) : (
