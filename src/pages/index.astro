@@ -22,7 +22,7 @@ let erroreAPI = false;
 let erroreMsg = '';
 
 try {
-  const apiKey = import.meta.env.BALLDONTLIE_API_KEY;
+  const apiKey = import.meta.env.BALLDONTLIE_API_KEY ?? process.env.BALLDONTLIE_API_KEY;
   const url = `https://api.balldontlie.io/v1/games?${datesQuery}&per_page=100`;
   const res = await fetch(url, {
     headers: { Authorization: apiKey ?? '' }
@@ -107,7 +107,7 @@ const cluster = [
       </div>
 
       {erroreAPI ? (
-        <p class="text-sm text-red-400">Errore: {erroreMsg}</p>
+        <p class="text-sm text-neutral-500">Dati non disponibili al momento.</p>
       ) : partite.length === 0 ? (
         <p class="text-sm text-neutral-500">Nessuna partita in programma.</p>
       ) : (
