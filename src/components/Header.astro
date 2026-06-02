@@ -10,25 +10,25 @@ const isActive = (href: string) =>
 ---
 
 <header class="sticky top-0 z-50 bg-black border-b border-neutral-900">
-  <div class="mx-auto flex max-w-6xl items-center gap-8 px-6 py-5">
+  <div class="mx-auto grid max-w-6xl grid-cols-3 items-center px-6 py-5">
 
-    <!-- Logo + nome -->
-    <a href="/" class="flex items-center gap-3 shrink-0" aria-label="Rimcourt, vai alla home">
+    <!-- Sinistra: Logo + nome -->
+    <a href="/" class="flex items-center gap-3" aria-label="Rimcourt, vai alla home">
       <img src="/logo.png" alt="Rimcourt logo" class="h-12 w-12 object-contain" />
       <span class="text-3xl font-bold tracking-widest uppercase text-white leading-none" style="font-family:'Agdasima',sans-serif;">
         RIMCOURT
       </span>
     </a>
 
-    <!-- Nav desktop -->
-    <nav class="hidden md:flex items-center gap-8 flex-1" aria-label="Navigazione principale">
+    <!-- Centro: Nav -->
+    <nav class="hidden md:flex items-center justify-center gap-8" aria-label="Navigazione principale">
       {nav.map((item) => {
         const active = isActive(item.href);
         return (
           <a
             href={item.href}
             aria-current={active ? 'page' : undefined}
-            class={`text-lg tracking-wide transition-colors hover:text-white ${active ? 'text-white' : 'text-neutral-400'}`}
+            class={`text-lg tracking-wide transition-colors hover:text-white ${active ? 'text-white' : 'text-white/70'}`}
             style="font-family:'Agdasima',sans-serif;"
           >
             {item.label}
@@ -37,8 +37,8 @@ const isActive = (href: string) =>
       })}
     </nav>
 
-    <!-- Destra desktop: ricerca + newsletter -->
-    <div class="hidden md:flex items-center gap-3 ml-auto">
+    <!-- Destra: ricerca + newsletter -->
+    <div class="hidden md:flex items-center justify-end gap-3">
       <button
         aria-label="Cerca"
         class="flex h-10 w-10 items-center justify-center rounded-md bg-white text-black transition-colors hover:bg-neutral-200"
@@ -57,27 +57,25 @@ const isActive = (href: string) =>
       </a>
     </div>
 
-    <!-- Mobile: hamburger -->
-    <button
-      id="menu-toggle"
-      aria-label="Apri menu"
-      aria-expanded="false"
-      aria-controls="mobile-menu"
-      class="ml-auto flex md:hidden flex-col justify-center items-center gap-1.5 h-10 w-10"
-    >
-      <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
-      <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
-      <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
-    </button>
+    <!-- Mobile: hamburger (colonna 3) -->
+    <div class="flex md:hidden justify-end">
+      <button
+        id="menu-toggle"
+        aria-label="Apri menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        class="flex flex-col justify-center items-center gap-1.5 h-10 w-10"
+      >
+        <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
+        <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
+        <span class="hamburger-line block h-0.5 w-6 bg-white transition-all duration-300"></span>
+      </button>
+    </div>
 
   </div>
 
   <!-- Menu mobile -->
-  <div
-    id="mobile-menu"
-    class="hidden md:hidden border-t border-neutral-900 bg-black"
-    aria-hidden="true"
-  >
+  <div id="mobile-menu" class="hidden md:hidden border-t border-neutral-900 bg-black" aria-hidden="true">
     <nav class="flex flex-col px-6 py-4 gap-1" aria-label="Navigazione mobile">
       {nav.map((item) => {
         const active = isActive(item.href);
@@ -85,7 +83,7 @@ const isActive = (href: string) =>
           <a
             href={item.href}
             aria-current={active ? 'page' : undefined}
-            class={`py-3 text-xl tracking-wide border-b border-neutral-900 transition-colors hover:text-white ${active ? 'text-white' : 'text-neutral-400'}`}
+            class={`py-3 text-xl tracking-wide border-b border-neutral-900 transition-colors hover:text-white ${active ? 'text-white' : 'text-white/70'}`}
             style="font-family:'Agdasima',sans-serif;"
           >
             {item.label}
@@ -109,27 +107,17 @@ const isActive = (href: string) =>
 
   toggle.addEventListener('click', () => {
     const isOpen = !menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', isOpen);
+    menu.setAttribute('aria-hidden', String(isOpen));
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+    toggle.setAttribute('aria-label', isOpen ? 'Apri menu' : 'Chiudi menu');
 
-    if (isOpen) {
-      menu.classList.add('hidden');
-      menu.setAttribute('aria-hidden', 'true');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.setAttribute('aria-label', 'Apri menu');
-    } else {
-      menu.classList.remove('hidden');
-      menu.setAttribute('aria-hidden', 'false');
-      toggle.setAttribute('aria-expanded', 'true');
-      toggle.setAttribute('aria-label', 'Chiudi menu');
-    }
-
-    // Animazione hamburger → X
     const lines = toggle.querySelectorAll<HTMLElement>('.hamburger-line');
     lines[0].style.transform = isOpen ? '' : 'translateY(8px) rotate(45deg)';
     lines[1].style.opacity = isOpen ? '1' : '0';
     lines[2].style.transform = isOpen ? '' : 'translateY(-8px) rotate(-45deg)';
   });
 
-  // Chiudi menu quando si clicca un link
   menu.querySelectorAll('a').forEach(link => {
     link.addEventListener('click', () => {
       menu.classList.add('hidden');
