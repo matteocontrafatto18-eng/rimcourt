@@ -1,0 +1,53 @@
+---
+const nav = [
+  { label: 'Partite', href: '/partite' },
+  { label: 'Statistiche', href: '/statistiche' },
+  { label: 'Calendario', href: '/calendario' },
+  { label: 'Guide', href: '/guide' },
+];
+const { pathname } = Astro.url;
+const isActive = (href: string) =>
+  href === '/' ? pathname === '/' : pathname.startsWith(href);
+---
+
+<header class="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+  <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+    <a href="/" class="flex items-center gap-2" aria-label="Rimcourt, vai alla home">
+      <svg viewBox="0 0 24 24" class="h-7 w-7" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="#FF741F" />
+        <g stroke="#0a0a0a" stroke-width="1.4" fill="none" stroke-linecap="round">
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <path d="M12 2c-4 4-4 16 0 20" />
+          <path d="M12 2c4 4 4 16 0 20" />
+          <line x1="2.4" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="21.6" y2="12" />
+        </g>
+      </svg>
+      <span class="text-lg font-semibold tracking-wide">RIMCOURT</span>
+    </a>
+
+    <nav class="hidden items-center gap-6 md:flex" aria-label="Navigazione principale">
+      {
+        nav.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <a
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              class={`text-sm transition-colors hover:text-white ${active ? 'text-white' : 'text-neutral-400'}`}
+            >
+              {item.label}
+            </a>
+          );
+        })
+      }
+    </nav>
+
+    <a
+      href="/newsletter"
+      class="rounded-md border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-100 transition-colors hover:border-neutral-500 hover:bg-neutral-900"
+    >
+      Newsletter
+    </a>
+  </div>
+</header>
