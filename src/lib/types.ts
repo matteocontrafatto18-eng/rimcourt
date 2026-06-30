@@ -32,11 +32,9 @@ export interface NewsArticle {
 }
 
 export interface Highlight {
-  id: string;
   label: string;
   title: string;
-  value?: string;
-  description?: string;
+  description: string;
 }
 
 export interface MVPPlayer {

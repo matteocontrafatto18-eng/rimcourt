@@ -1,4 +1,5 @@
 ---
+import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/layout/Header.astro';
 import StaseraInNba from '../components/sections/StaseraInNba';
@@ -8,14 +9,33 @@ import PrimaPagina from '../components/sections/PrimaPagina';
 import { fetchUpcomingGames, fetchRecentGames } from '../lib/api';
 import type { NewsArticle } from '../lib/types';
 
-// Fetch dati in parallelo lato server
-const [upcomingGames, recentGames] = await Promise.all([
+// Partite dall'API + contenuti curati, tutto in parallelo
+const [upcomingGames, recentGames, newsEntries, nightlyEntries] = await Promise.all([
   fetchUpcomingGames().catch(() => []),
   fetchRecentGames().catch(() => []),
+  getCollection('news', ({ data }) => !data.draft),
+  getCollection('nightly'),
 ]);
 
-// Placeholder notizie — verrà collegato a CMS/API
-const news: NewsArticle[] = [];
+// Notizie → ordina dalla più recente, mappa al formato del componente
+const news: NewsArticle[] = newsEntries
+  .sort((a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime())
+  .slice(0, 4)
+  .map((entry) => ({
+    id: entry.id,
+    title: entry.data.title,
+    description: entry.data.description,
+    imageUrl: entry.data.image || undefined,
+    href: `/notizie/${entry.id}`,
+    publishedAt: entry.data.publishedAt.toISOString(),
+  }));
+
+// Highlights → prende la giornata più recente
+const latestNight = nightlyEntries.sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+)[0];
+const mvp = latestNight?.data.mvp;
+const highlights = latestNight?.data.highlights ?? [];
 ---
 
 <Layout
@@ -27,18 +47,7 @@ const news: NewsArticle[] = [];
   <main class="page-main">
     <StaseraInNba games={upcomingGames} client:load />
     <UltimePartite games={recentGames} client:load />
-    <HighlightsNotte client:load />
+    <HighlightsNotte mvp={mvp} highlights={highlights} client:load />
     <PrimaPagina articles={news} client:load />
   </main>
 </Layout>
-
-<style>
-  .page-main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem 1.5rem 4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
-  }
-</style>

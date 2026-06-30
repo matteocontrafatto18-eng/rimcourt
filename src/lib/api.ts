@@ -70,14 +70,39 @@ export async function fetchUpcomingGames(): Promise<Game[]> {
   );
 }
 
-/** Ultime partite giocate (status Final) */
+/** Anno d'inizio della stagione NBA corrente (es. giugno 2026 → 2025) */
+function currentSeasonYear(): number {
+  const now = new Date();
+  return now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+/**
+ * Ultime partite giocate.
+ * In stagione: le partite Final degli ultimi giorni.
+ * In offseason: le ultime partite della stagione appena conclusa (Finals).
+ */
 export async function fetchRecentGames(): Promise<Game[]> {
+  // 1) Prova gli ultimi 7 giorni (comportamento in stagione)
   const dates = Array.from({ length: 7 }, (_, i) => italianDate(-i - 1));
-  const query = dates.map(d => `dates[]=${d}`).join('&');
-  const res = await fetch(`${BASE_URL}/games?${query}&per_page=20`, { headers });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  const json = await res.json();
-  return (json.data as Game[])
+  const recentQuery = dates.map(d => `dates[]=${d}`).join('&');
+  const recentRes = await fetch(`${BASE_URL}/games?${recentQuery}&per_page=25`, { headers });
+  if (recentRes.ok) {
+    const recent = ((await recentRes.json()).data as Game[]).filter(g => g.status === 'Final');
+    if (recent.length > 0) {
+      return recent
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 4);
+    }
+  }
+
+  // 2) Offseason: prendi le ultime partite della stagione conclusa
+  const season = currentSeasonYear();
+  const seasonRes = await fetch(
+    `${BASE_URL}/games?seasons[]=${season}&postseason=true&per_page=100`,
+    { headers }
+  );
+  if (!seasonRes.ok) throw new Error(`API ${seasonRes.status}`);
+  return ((await seasonRes.json()).data as Game[])
     .filter(g => g.status === 'Final')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 4);
