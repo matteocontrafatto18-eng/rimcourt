@@ -1,82 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
-import GameCard from '../components/GameCard.astro';
-
-// Data italiana corrente (SSR: calcolata ad ogni richiesta)
-const now = new Date();
-const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' });
-const oggiIT = formatter.format(now);
-
-// Fetchiamo 7 giorni da oggi
-const dates: string[] = [];
-for (let i = 0; i < 7; i++) {
-  const d = new Date(now);
-  d.setDate(d.getDate() + i);
-  dates.push(formatter.format(d));
-}
-const datesQuery = dates.map(d => `dates[]=${d}`).join('&');
-
-let partite: any[] = [];
-let erroreAPI = false;
-let erroreMsg = '';
-
-try {
-  const apiKey = import.meta.env.BALLDONTLIE_API_KEY ?? process.env.BALLDONTLIE_API_KEY;
-  const url = `https://api.balldontlie.io/v1/games?${datesQuery}&per_page=100`;
-  const res = await fetch(url, {
-    headers: { Authorization: apiKey ?? '' }
-  });
-  if (res.ok) {
-    const json = await res.json();
-    partite = (json.data ?? []).sort((a: any, b: any) =>
-      new Date(a.datetime ?? a.status).getTime() - new Date(b.datetime ?? b.status).getTime()
-    );
-  } else {
-    erroreMsg = `API ${res.status}: ${await res.text()}`;
-    erroreAPI = true;
-  }
-} catch (e: any) {
-  erroreMsg = e?.message ?? 'fetch error';
-  erroreAPI = true;
-}
-
-function oraIT(game: any): string {
-  if (game.status === 'Final') return 'Final';
-  if (game.period > 0) return `Q${game.period}${game.time ? ' ' + game.time : ''}`;
-  const raw = game.datetime ?? game.status;
-  if (!raw) return '–';
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return raw;
-  return d.toLocaleTimeString('it-IT', {
-    timeZone: 'Europe/Rome',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function dataIT(game: any): string {
-  const raw = game.datetime ?? game.status;
-  if (!raw) return oggiIT;
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return oggiIT;
-  return formatter.format(d);
-}
-
-function labelData(dateStr: string): string {
-  if (dateStr === oggiIT) return 'Oggi';
-  const domani = formatter.format(new Date(now.getTime() + 86400000));
-  if (dateStr === domani) return 'Dom.';
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-}
-
-const cluster = [
-  { label: 'Dove vedere', href: '/dove-vedere' },
-  { label: 'Recap & analisi', href: '/recap' },
-  { label: 'Guide', href: '/guide' },
-  { label: 'Squadre & giocatori', href: '/squadre' },
-];
 ---
 
 <Layout
@@ -85,138 +9,488 @@ const cluster = [
 >
   <Header />
 
-  <main class="mx-auto max-w-6xl px-6 py-8 space-y-8">
+  <main class="main">
 
-    <!-- Prossime partite -->
-    <section aria-labelledby="partite-title">
-      <div class="flex items-center justify-between mb-5">
-        <h2
-          id="partite-title"
-          class="text-2xl font-bold text-white"
-          style="font-family:'Agdasima',sans-serif;"
-        >
-          Prossime partite
-        </h2>
-        <a
-          href="/partite"
-          class="text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
-          style="font-family:'Agdasima',sans-serif;"
-        >
-          Tutte →
-        </a>
+    <!-- ═══════════════════════════════════════
+         BLOCCO 1 — STASERA IN NBA
+    ═══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Stasera in NBA</h2>
+        <a href="/partite" class="section-link">Tutte →</a>
       </div>
 
-      {erroreAPI ? (
-        <p class="text-sm text-neutral-500">Dati non disponibili al momento.</p>
-      ) : partite.length === 0 ? (
-        <p class="text-sm text-neutral-500">Nessuna partita in programma.</p>
-      ) : (
-        /* Scroll orizzontale su mobile, griglia su desktop */
-        <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none
-                    md:grid md:grid-cols-4 md:overflow-visible">
-          {partite.map((p) => (
-            <div class="snap-start">
-              <GameCard
-                game={p}
-                dataLabel={labelData(dataIT(p))}
-                ora={oraIT(p)}
-                gameLabel={p.postseason ? 'Playoffs' : 'Regular Season'}
-              />
+      <div class="stasera-grid">
+
+        <!-- Card partita in evidenza -->
+        <div class="game-card">
+          <div class="game-card-time">ORA ITALIANA</div>
+          <div class="game-card-matchup">
+            <div class="team">
+              <div class="team-logo"></div>
+              <span class="team-name">Nome Squadra</span>
             </div>
-          ))}
+            <span class="vs">—</span>
+            <div class="team">
+              <div class="team-logo"></div>
+              <span class="team-name">Nome Squadra</span>
+            </div>
+          </div>
+          <a href="/dove-vedere" class="game-card-link">Clicca dove vedere la partita</a>
         </div>
-      )}
-    </section>
 
-    <!-- Recap e analisi -->
-    <section aria-labelledby="recap-title" class="rounded-xl bg-neutral-900 border border-neutral-800 p-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2
-          id="recap-title"
-          class="text-xl font-bold text-white"
-          style="font-family:'Agdasima',sans-serif;"
-        >
-          Recap e analisi
-        </h2>
-        <a href="/recap" class="text-sm text-neutral-500 hover:text-neutral-300 transition-colors">Tutti →</a>
+        <div class="game-card">
+          <div class="game-card-time">ORA ITALIANA</div>
+          <div class="game-card-matchup">
+            <div class="team">
+              <div class="team-logo"></div>
+              <span class="team-name">Nome Squadra</span>
+            </div>
+            <span class="vs">—</span>
+            <div class="team">
+              <div class="team-logo"></div>
+              <span class="team-name">Nome Squadra</span>
+            </div>
+          </div>
+          <a href="/dove-vedere" class="game-card-link">Clicca dove vedere la partita</a>
+        </div>
+
       </div>
-      <p class="text-sm text-neutral-500">Il recap della notte in italiano — in arrivo.</p>
     </section>
 
-    <!-- Esplora -->
-    <section aria-labelledby="esplora-title">
-      <h2
-        id="esplora-title"
-        class="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-500"
-        style="font-family:'Agdasima',sans-serif;"
-      >
-        Esplora
-      </h2>
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {cluster.map((c) => (
-          <a
-            href={c.href}
-            class="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-8 text-base font-semibold text-neutral-300 transition-colors hover:border-orange-500 hover:text-white"
-            style="font-family:'Agdasima',sans-serif;"
-          >
-            {c.label}
+    <!-- ═══════════════════════════════════════
+         BLOCCO 2 — ULTIME PARTITE
+    ═══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Ultime partite</h2>
+        <a href="/partite" class="section-link">Tutte →</a>
+      </div>
+
+      <div class="results-grid">
+
+        {[1,2,3,4].map(() => (
+          <div class="result-card">
+            <div class="result-card-top">
+              <div class="result-meta">
+                <span class="result-date">DATA</span>
+                <span class="result-label">Match in evidenza</span>
+              </div>
+              <button class="btn-score">Mostra il punteggio</button>
+            </div>
+            <div class="result-teams">
+              <div class="result-team">
+                <div class="team-logo sm"></div>
+                <span>Nome Squadra</span>
+                <span class="result-pts hidden">91</span>
+              </div>
+              <div class="result-team">
+                <div class="team-logo sm"></div>
+                <span>Nome Squadra</span>
+                <span class="result-pts hidden">108</span>
+              </div>
+            </div>
+            <a href="/recap" class="btn-recap">Recap</a>
+          </div>
+        ))}
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         BLOCCO 3 — HIGHLIGHTS DELLA NOTTE
+    ═══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Highlights della notte</h2>
+      </div>
+
+      <div class="highlights-grid">
+
+        <!-- MVP -->
+        <div class="highlight-card mvp">
+          <p class="highlight-label">MVP DELLA NOTTE</p>
+          <p class="highlight-player">Nome Giocatore</p>
+          <div class="mvp-stats">
+            <span class="mvp-stat pts">PTS 51</span>
+            <span class="mvp-stat">REB 5</span>
+            <span class="mvp-stat">AST 8</span>
+          </div>
+          <div class="mvp-img-placeholder"></div>
+        </div>
+
+        <!-- 3 highlight box -->
+        <div class="highlight-card">
+          <p class="highlight-label">HIGHLIGHT</p>
+          <p class="highlight-text">Cosa di picco accaduta nella notte</p>
+        </div>
+
+        <div class="highlight-card">
+          <p class="highlight-label">HIGHLIGHT</p>
+          <p class="highlight-text">Cosa di picco accaduta nella notte</p>
+        </div>
+
+        <div class="highlight-card">
+          <p class="highlight-label">HIGHLIGHT</p>
+          <p class="highlight-text">Cosa di picco accaduta nella notte</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         BLOCCO 4 — ULTIME NOTIZIE
+    ═══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Prima Pagina</h2>
+      </div>
+
+      <div class="news-grid">
+
+        {[1,2,3,4].map(() => (
+          <a href="/notizie" class="news-card">
+            <div class="news-img"></div>
+            <div class="news-body">
+              <p class="news-title">TITOLO NOTIZIA</p>
+              <p class="news-desc">Descrizione</p>
+            </div>
           </a>
         ))}
-      </div>
-    </section>
 
-    <!-- Ads -->
-    <div
-      class="rounded-xl border border-dashed border-neutral-800 py-10 text-center text-xs text-neutral-700"
-      aria-hidden="true"
-    >
-      spazio pubblicitario
-    </div>
-
-    <!-- Newsletter -->
-    <section
-      aria-labelledby="newsletter-title"
-      class="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-5"
-    >
-      <div class="flex-1">
-        <h2
-          id="newsletter-title"
-          class="text-lg font-bold text-white"
-          style="font-family:'Agdasima',sans-serif;"
-        >
-          Partite di stanotte + recap — nella tua inbox
-        </h2>
-        <p class="text-sm text-neutral-500 mt-1">Una mail al giorno, solo nei giorni di partita.</p>
       </div>
-      <a
-        href="/newsletter"
-        class="shrink-0 rounded-md bg-orange-500 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-orange-400"
-        style="font-family:'Agdasima',sans-serif;"
-      >
-        Iscriviti
-      </a>
     </section>
 
   </main>
 
-  <!-- Footer -->
-  <footer class="mt-12 border-t border-neutral-900 px-6 py-8">
-    <div class="mx-auto max-w-6xl flex flex-wrap gap-6 text-sm text-neutral-600">
-      <a href="/squadre" class="hover:text-neutral-300 transition-colors">Squadre</a>
-      <a href="/giocatori" class="hover:text-neutral-300 transition-colors">Giocatori</a>
-      <a href="/guide" class="hover:text-neutral-300 transition-colors">Guide</a>
-      <a href="/dove-vedere" class="hover:text-neutral-300 transition-colors">Dove vedere NBA in Italia</a>
-      <a href="/calendario" class="hover:text-neutral-300 transition-colors">Calendario 2026/27</a>
-    </div>
-  </footer>
-
 </Layout>
 
 <style>
-  .scrollbar-none {
-    scrollbar-width: none;
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    font-family: 'Agdasima', sans-serif;
   }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
+
+  /* ── Sezione ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.05em;
+  }
+
+  .section-link {
+    font-size: 0.9rem;
+    color: #ff6b1a;
+    text-decoration: none;
+  }
+
+  /* ── STASERA IN NBA ── */
+  .stasera-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .game-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .game-card-time {
+    font-size: 0.85rem;
+    color: #ff6b1a;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .game-card-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+
+  .team-logo {
+    width: 52px;
+    height: 52px;
+    background: #2a2a2a;
+    border-radius: 8px;
+  }
+
+  .team-logo.sm {
+    width: 36px;
+    height: 36px;
+  }
+
+  .team-name {
+    font-size: 0.85rem;
+    color: #ccc;
+    text-align: center;
+  }
+
+  .vs {
+    color: #555;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .game-card-link {
+    font-size: 0.8rem;
+    color: #888;
+    text-decoration: none;
+    border-top: 1px solid #2a2a2a;
+    padding-top: 0.75rem;
+    transition: color 0.2s;
+  }
+
+  .game-card-link:hover { color: #ff6b1a; }
+
+  /* ── ULTIME PARTITE ── */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .result-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .result-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .result-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .result-date {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .result-label {
+    font-size: 0.7rem;
+    color: #ff6b1a;
+  }
+
+  .btn-score {
+    background: #ff6b1a;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+    font-family: 'Agdasima', sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+
+  .btn-score:hover { opacity: 0.85; }
+
+  .result-teams {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .result-team {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: #ccc;
+  }
+
+  .result-pts {
+    margin-left: auto;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .result-pts.hidden { visibility: hidden; }
+
+  .btn-recap {
+    display: block;
+    background: #ff6b1a;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 5px;
+    padding: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: 'Agdasima', sans-serif;
+    transition: opacity 0.2s;
+  }
+
+  .btn-recap:hover { opacity: 0.85; }
+
+  /* ── HIGHLIGHTS ── */
+  .highlights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .highlight-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 160px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .highlight-card.mvp {
+    border-color: #ff6b1a;
+  }
+
+  .highlight-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #ff6b1a;
+    margin: 0;
+  }
+
+  .highlight-player {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  .mvp-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .mvp-stat {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .mvp-stat.pts { color: #ff6b1a; }
+
+  .mvp-img-placeholder {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 90px;
+    height: 120px;
+    background: #2a2a2a;
+    border-radius: 8px 0 0 0;
+  }
+
+  .highlight-text {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin: 0;
+  }
+
+  /* ── NOTIZIE ── */
+  .news-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .news-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.2s;
+  }
+
+  .news-card:hover { border-color: #ff6b1a; }
+
+  .news-img {
+    width: 100%;
+    height: 140px;
+    background: #2a2a2a;
+  }
+
+  .news-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .news-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  .news-desc {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .results-grid { grid-template-columns: repeat(2, 1fr); }
+    .highlights-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    .stasera-grid { grid-template-columns: 1fr; }
+    .results-grid { grid-template-columns: 1fr 1fr; }
+    .highlights-grid { grid-template-columns: 1fr 1fr; }
+    .news-grid { grid-template-columns: 1fr; }
   }
 </style>
